@@ -14,29 +14,29 @@ sass:
   style: compressed # expanded
 
 # SEO settings
-title: end2end
-description: "A free Jekyll theme for download"
-keywords: "Jekyll, theme, free, download, SEO, blog, web"
-url: http://nandomoreira.me
-baseurl: "/end2end"
+title: I'm Yang Bo
+description: "A full-stack developer, Bootstrapper, Runner, Father and Husband"
+keywords: "Jekyll, SEO, blog, web, ruby, rails"
+#url: http://nandomoreira.me
+baseurl: "/y00rb"
 # baseurl: ""
 
-# google_analytics: UA-52446115-1
-repo: http://github.com/nandomoreirame/end2end
-disqus_shortname: "fernandomoreira"
+google_analytics: UA-70112871-1
+repo: http://github.com/y00rb/y00rb.github.io
+disqus_shortname: "y00rb"
 
 # Author settings
 author:
-  name      : Fernando Moreira
-  job       : Frontend Engineer
-  bio       : "Enthusiast performance, responsive design and usability, always looking for the best project and good coffee."
+  name      : Yang Bo
+  job       : Full-stack Developer
+  bio       : "I've been programming software for about 10 years now, I've been hitting many fields; I love running long distance"
   thumb     : /images/author.jpg
-  email     : nandomoreira.me@gmail.com
+  email     : yangbodotnet@gmail.com
   url       : http://nandomoreira.me
-  github    : http://github.com/nandomoreirame
-  twitter   : http://twitter.com/nandomoreirame
-  facebook  : http://facebook.com/fernando.dev
-  linkedin  : http://linkedin.com/in/nandomoreirame
+  github    : https://github.com/y00rb
+  twitter   : https://twitter.com/yangbodotnet
+  facebook  : https://facebook.com/yangbodotnet
+  linkedin  : https://linkedin.com/in/yangboruby
 
 # navbar pages
 navbar:
