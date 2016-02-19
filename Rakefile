@@ -70,7 +70,7 @@ task :post do
 
   begin
     date = (ENV['date'] ? Time.parse(ENV['date']) : Time.now).strftime('%Y-%m-%d')
-    time = (ENV['date'] ? Time.parse(ENV['date']) : Time.now).strftime('%T')
+    #time = (ENV['date'] ? Time.parse(ENV['date']) : Time.now).strftime('%T')
   rescue => e
     puts "Error - date format must be YYYY-MM-DD, please check you typed it correctly!"
     exit -1
@@ -87,7 +87,7 @@ task :post do
     post.puts "layout: post"
     post.puts "title: \"#{title.gsub(/-/,' ')}\""
     post.puts "permalink: #{slug}"
-    post.puts "date: #{date} #{time}"
+    post.puts "date: #{date}"
     post.puts "comments: true"
     post.puts "description: \"#{title}\""
     post.puts 'keywords: ""'
