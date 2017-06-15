@@ -1,0 +1,298 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>I&#39;m Yang Bo</title>
+    <description>A full-stack developer, Bootstrapper, Runner, Father and Husband</description>
+    <link>/</link>
+    <atom:link href="/feed.xml" rel="self" type="application/rss+xml"/>
+    <pubDate>Thu, 15 Jun 2017 21:42:56 +0800</pubDate>
+    <lastBuildDate>Thu, 15 Jun 2017 21:42:56 +0800</lastBuildDate>
+    <generator>Jekyll v3.1.1</generator>
+    
+      <item>
+        <title>The ways to load code in ruby</title>
+        <description>&lt;h3 id=&quot;section&quot;&gt;前言&lt;/h3&gt;
+&lt;p&gt;本周开始浏览下&lt;a href=&quot;https://github.com/discourse/discourse&quot;&gt;Discourse源码&lt;/a&gt;，发现一个和我们经常组织rails代码的方式不一样的用法，即大量使用&lt;code&gt;require_dependency&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;经过一番查找和研究，发现&lt;code&gt;require_dependency&lt;/code&gt;主要用于在developement环境下面，加载&lt;code&gt;./lib&lt;/code&gt;目录下的class。类似这样的用法：&lt;/p&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-ruby&quot; data-lang=&quot;ruby&quot;&gt;&lt;span class=&quot;c1&quot;&gt;# ./lib/meta_info.rb&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;class&lt;/span&gt; &lt;span class=&quot;nc&quot;&gt;MetaInfo&lt;/span&gt;
+  &lt;span class=&quot;k&quot;&gt;def&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;name&lt;/span&gt;
+
+  &lt;span class=&quot;k&quot;&gt;end&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;end&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-ruby&quot; data-lang=&quot;ruby&quot;&gt;&lt;span class=&quot;c1&quot;&gt;# ./app/models/about.rb&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;require_dependency&lt;/span&gt; &lt;span class=&quot;s1&quot;&gt;&amp;#39;meta_info&amp;#39;&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;class&lt;/span&gt; &lt;span class=&quot;nc&quot;&gt;About&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;end&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;p&gt;主要目的在于当修改在&lt;code&gt;./lib&lt;/code&gt;下的文件后，development环境下的会自动&lt;strong&gt;reload&lt;/strong&gt;所有&lt;code&gt;./lib&lt;/code&gt;下面的修改。&lt;code&gt;require&lt;/code&gt;无法做到，必须重新启动rails server才行。&lt;/p&gt;
+
+&lt;h4 id=&quot;ruby&quot;&gt;深入研究Ruby中的代码加载机制&lt;/h4&gt;
+&lt;p&gt;但是&lt;code&gt;require_dependency&lt;/code&gt;仅仅是在rails中的一个load机制，所以不在这里过多介绍。但是由于好奇使用&lt;code&gt;require_dependency&lt;/code&gt;和&lt;code&gt;require&lt;/code&gt;之间的差异，所以完整的研究了下ruby下的load机制，他们分别是&lt;code&gt;load&lt;/code&gt;, &lt;code&gt;require&lt;/code&gt;, &lt;code&gt;require_relative&lt;/code&gt;, &lt;code&gt;autoload&lt;/code&gt;。例子使用User和Role之间的依赖关系来做比较，主要在User下如何加载Role。以下是Role的definition。&lt;/p&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-ruby&quot; data-lang=&quot;ruby&quot;&gt;&lt;span class=&quot;k&quot;&gt;class&lt;/span&gt; &lt;span class=&quot;nc&quot;&gt;Role&lt;/span&gt;
+  &lt;span class=&quot;nb&quot;&gt;puts&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&amp;quot;loading role&amp;quot;&lt;/span&gt;
+  &lt;span class=&quot;k&quot;&gt;def&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;name&lt;/span&gt;
+    &lt;span class=&quot;s2&quot;&gt;&amp;quot;admin&amp;quot;&lt;/span&gt;
+  &lt;span class=&quot;k&quot;&gt;end&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;end&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-ruby&quot; data-lang=&quot;ruby&quot;&gt;&lt;span class=&quot;nb&quot;&gt;require&lt;/span&gt; &lt;span class=&quot;s1&quot;&gt;&amp;#39;forwardable&amp;#39;&lt;/span&gt; &lt;span class=&quot;c1&quot;&gt;#ignore this require&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;class&lt;/span&gt; &lt;span class=&quot;nc&quot;&gt;User&lt;/span&gt;
+  &lt;span class=&quot;nb&quot;&gt;puts&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&amp;quot;loading user&amp;quot;&lt;/span&gt;
+  &lt;span class=&quot;kp&quot;&gt;extend&lt;/span&gt; &lt;span class=&quot;no&quot;&gt;Forwardable&lt;/span&gt;
+  &lt;span class=&quot;kp&quot;&gt;attr_accessor&lt;/span&gt; &lt;span class=&quot;ss&quot;&gt;:role&lt;/span&gt;
+  &lt;span class=&quot;k&quot;&gt;def&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;name&lt;/span&gt;
+
+  &lt;span class=&quot;k&quot;&gt;end&lt;/span&gt;
+
+  &lt;span class=&quot;n&quot;&gt;def_delegator&lt;/span&gt; &lt;span class=&quot;ss&quot;&gt;:@role&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;ss&quot;&gt;:name&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;ss&quot;&gt;:role_name&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;end&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;p&gt;如果在没有其它任何引用/加载机制下面，直接使用如下代码是会报错的。&lt;/p&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-ruby&quot; data-lang=&quot;ruby&quot;&gt;&lt;span class=&quot;n&quot;&gt;user&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;no&quot;&gt;User&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;new&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;user&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;role&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;no&quot;&gt;Role&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;new&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;user&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;role_name&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;NameError: uninitialized constant Role&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;p&gt;因为在没有Role代码加载在程序运行时上下文的情况下，在User类是找不到Role的定义，使用ruby提供了一些代码加载的机制。
+那么我们接下来看看这四种不同的机制下面，Ruby是如何加载代码的。&lt;/p&gt;
+
+&lt;h4 id=&quot;kernelload&quot;&gt;Kernel#load()&lt;/h4&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-ruby&quot; data-lang=&quot;ruby&quot;&gt;&lt;span class=&quot;c1&quot;&gt;# ./user.rb&lt;/span&gt;
+&lt;span class=&quot;nb&quot;&gt;load&lt;/span&gt; &lt;span class=&quot;s1&quot;&gt;&amp;#39;./role.rb&amp;#39;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;p&gt;而且在&lt;code&gt;irb&lt;/code&gt;环境下面，使用load加载user.rb&lt;/p&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-ruby&quot; data-lang=&quot;ruby&quot;&gt;&lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;&lt;span class=&quot;mo&quot;&gt;001&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;load&lt;/span&gt; &lt;span class=&quot;s1&quot;&gt;&amp;#39;./user.rb&amp;#39;&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;loading&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;role&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;loading&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;user&lt;/span&gt;
+ &lt;span class=&quot;o&quot;&gt;=&amp;gt;&lt;/span&gt; &lt;span class=&quot;kp&quot;&gt;true&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;p&gt;由于在代码中特别加入&lt;code&gt;puts ‘loading user’&lt;/code&gt;和&lt;code&gt;puts &#39;loading role&#39;&lt;/code&gt;来测试代码加载中的执行机制，所以可以看到在使用&lt;code&gt;load&lt;/code&gt;的情况下，user.rb和role.rb的所有代码是经过了一遍go through的，而且由于在user.rb第一行便执行&lt;code&gt;load &#39;./role&#39;&lt;/code&gt;，所以先print出”loading role“。&lt;/p&gt;
+
+&lt;h4 id=&quot;kernelrequire&quot;&gt;Kernel#require()&lt;/h4&gt;
+&lt;p&gt;当把代码修改成这样&lt;/p&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-ruby&quot; data-lang=&quot;ruby&quot;&gt;&lt;span class=&quot;c1&quot;&gt;# ./user.rb&lt;/span&gt;
+&lt;span class=&quot;nb&quot;&gt;require&lt;/span&gt; &lt;span class=&quot;s1&quot;&gt;&amp;#39;./role&amp;#39;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;p&gt;而且在&lt;code&gt;irb&lt;/code&gt;环境下面，使用require加载user.rb&lt;/p&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-ruby&quot; data-lang=&quot;ruby&quot;&gt;&lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;&lt;span class=&quot;mo&quot;&gt;001&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;require&lt;/span&gt; &lt;span class=&quot;s1&quot;&gt;&amp;#39;./user&amp;#39;&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;loading&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;role&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;loading&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;user&lt;/span&gt;
+ &lt;span class=&quot;o&quot;&gt;=&amp;gt;&lt;/span&gt; &lt;span class=&quot;kp&quot;&gt;true&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;p&gt;那么现在看来，似乎&lt;code&gt;load&lt;/code&gt;与&lt;code&gt;require&lt;/code&gt;没有什么区别，但是当我们执行运行第二次代码的时候会如何？&lt;/p&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-ruby&quot; data-lang=&quot;ruby&quot;&gt;&lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;&lt;span class=&quot;mo&quot;&gt;002&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;require&lt;/span&gt; &lt;span class=&quot;s1&quot;&gt;&amp;#39;./user&amp;#39;&lt;/span&gt;
+ &lt;span class=&quot;o&quot;&gt;=&amp;gt;&lt;/span&gt; &lt;span class=&quot;kp&quot;&gt;false&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;p&gt;没有发生任何变化，这是说明在使用&lt;code&gt;require&lt;/code&gt;的情况下，运行时上下文已经加载了代码，不会再额外加载，而&lt;code&gt;load&lt;/code&gt;会完成再执行一遍。&lt;/p&gt;
+
+&lt;h4 id=&quot;kernelrequirerelative&quot;&gt;Kernel#require_relative()&lt;/h4&gt;
+&lt;p&gt;顾名思义&lt;code&gt;require_relative&lt;/code&gt;是加载相对路径的代码，为了更好比较&lt;code&gt;require&lt;/code&gt;和&lt;code&gt;require_relative&lt;/code&gt;当把代码修改如：&lt;/p&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-ruby&quot; data-lang=&quot;ruby&quot;&gt;&lt;span class=&quot;c1&quot;&gt;# ./user.rb&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;require_relative&lt;/span&gt; &lt;span class=&quot;s1&quot;&gt;&amp;#39;role&amp;#39;&lt;/span&gt;
+&lt;span class=&quot;c1&quot;&gt;# require &amp;#39;role&amp;#39;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;p&gt;而且在&lt;code&gt;irb&lt;/code&gt;环境下面，当执行require_relative，代码成功加载&lt;/p&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-ruby&quot; data-lang=&quot;ruby&quot;&gt;&lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;&lt;span class=&quot;mo&quot;&gt;001&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;require&lt;/span&gt; &lt;span class=&quot;s1&quot;&gt;&amp;#39;./user&amp;#39;&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;loading&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;role&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;loading&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;user&lt;/span&gt;
+ &lt;span class=&quot;o&quot;&gt;=&amp;gt;&lt;/span&gt; &lt;span class=&quot;kp&quot;&gt;true&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;p&gt;但是当执行require的时候，在&lt;code&gt;require &#39;role&#39;&lt;/code&gt;的时候报错了。&lt;/p&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-ruby&quot; data-lang=&quot;ruby&quot;&gt;&lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;&lt;span class=&quot;mo&quot;&gt;001&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;require&lt;/span&gt; &lt;span class=&quot;s1&quot;&gt;&amp;#39;./user&amp;#39;&lt;/span&gt;
+&lt;span class=&quot;ss&quot;&gt;LoadError&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;cannot&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;load&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;such&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;file&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;--&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;role&lt;/span&gt;
+	&lt;span class=&quot;n&quot;&gt;from&lt;/span&gt; &lt;span class=&quot;sr&quot;&gt;/Users/&lt;/span&gt;&lt;span class=&quot;no&quot;&gt;Paul&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;/.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;rvm&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;rubies&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;ruby&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;lib&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;ruby&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;site_ruby&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;rubygems&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;core_ext&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;kernel_require&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;rb&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;54&lt;/span&gt;&lt;span class=&quot;ss&quot;&gt;:in&lt;/span&gt; &lt;span class=&quot;sb&quot;&gt;`require&amp;#39;&lt;/span&gt;
+&lt;span class=&quot;sb&quot;&gt;	from /Users/Paul/.rvm/rubies/ruby-2.2.2/lib/ruby/site_ruby/2.2.0/rubygems/core_ext/kernel_require.rb:54:in `&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;require&lt;/span&gt;&lt;span class=&quot;s1&quot;&gt;&amp;#39;&lt;/span&gt;
+&lt;span class=&quot;s1&quot;&gt;	from /Users/Paul/Programming/learning/workouts/require_vs_require_dependency/user.rb:2:in `&amp;lt;top (required)&amp;gt;&amp;#39;&lt;/span&gt;
+	&lt;span class=&quot;n&quot;&gt;from&lt;/span&gt; &lt;span class=&quot;sr&quot;&gt;/Users/&lt;/span&gt;&lt;span class=&quot;no&quot;&gt;Paul&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;/.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;rvm&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;rubies&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;ruby&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;lib&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;ruby&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;site_ruby&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;rubygems&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;core_ext&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;kernel_require&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;rb&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;54&lt;/span&gt;&lt;span class=&quot;ss&quot;&gt;:in&lt;/span&gt; &lt;span class=&quot;sb&quot;&gt;`require&amp;#39;&lt;/span&gt;
+&lt;span class=&quot;sb&quot;&gt;	from /Users/Paul/.rvm/rubies/ruby-2.2.2/lib/ruby/site_ruby/2.2.0/rubygems/core_ext/kernel_require.rb:54:in `&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;require&lt;/span&gt;&lt;span class=&quot;s1&quot;&gt;&amp;#39;&lt;/span&gt;
+&lt;span class=&quot;s1&quot;&gt;	from (irb):1&lt;/span&gt;
+&lt;span class=&quot;s1&quot;&gt;	from /Users/Paul/.rvm/rubies/ruby-2.2.2/bin/irb:11:in `&amp;lt;main&amp;gt;&amp;#39;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;p&gt;找不到role，这是怎么回事呢？当我们加上&lt;code&gt;./&lt;/code&gt;在role前，就是指定了一个相对路径给&lt;code&gt;require&lt;/code&gt;。那么怎么解决这个Error呢？两个办法，当使用require保持显式路径，或者在user.rb第一行，加入&lt;/p&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-ruby&quot; data-lang=&quot;ruby&quot;&gt;&lt;span class=&quot;vg&quot;&gt;$:&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;unshift&lt;/span&gt; &lt;span class=&quot;s1&quot;&gt;&amp;#39;.&amp;#39;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;p&gt;这一行代码是讲加入当前路径加到&lt;code&gt;$LOAD_PATH&lt;/code&gt;中，这样以来运行时上下文便有了当前路径，自然&lt;code&gt;require&lt;/code&gt;就可以直接加载role了。&lt;code&gt;require_relative&lt;/code&gt;则可以在当前文件的相对路径下加载其它代码。&lt;/p&gt;
+
+&lt;h4 id=&quot;kernelautoload&quot;&gt;Kernel#autoload()&lt;/h4&gt;
+&lt;p&gt;保持争取的role加载在user.rb中，我们使用&lt;code&gt;autoload&lt;/code&gt;的方式加载试试：&lt;/p&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-ruby&quot; data-lang=&quot;ruby&quot;&gt;&lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;&lt;span class=&quot;mo&quot;&gt;001&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;autoload&lt;/span&gt; &lt;span class=&quot;ss&quot;&gt;:User&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;s1&quot;&gt;&amp;#39;./user&amp;#39;&lt;/span&gt;
+ &lt;span class=&quot;o&quot;&gt;=&amp;gt;&lt;/span&gt; &lt;span class=&quot;kp&quot;&gt;nil&lt;/span&gt;
+&lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;&lt;span class=&quot;mo&quot;&gt;002&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;u&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;no&quot;&gt;User&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;new&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;loading&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;role&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;loading&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;user&lt;/span&gt;
+ &lt;span class=&quot;o&quot;&gt;=&amp;gt;&lt;/span&gt; &lt;span class=&quot;c1&quot;&gt;#&amp;lt;User:0x007f9cd9279700&amp;gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;p&gt;看到输出，可以理解为一种lazy load机制，它推迟了代码加载的阶段，直到最后代码需要调用的时候才会加载。看起来是一种性能较优的加载方式。
+但是，当我们使用autoload的时候，如果文件路径错误，很难在没有调用的运行时检查错误。比如：&lt;/p&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-ruby&quot; data-lang=&quot;ruby&quot;&gt;&lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;&lt;span class=&quot;mo&quot;&gt;001&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;autoload&lt;/span&gt; &lt;span class=&quot;ss&quot;&gt;:User&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;s1&quot;&gt;&amp;#39;./users&amp;#39;&lt;/span&gt;
+ &lt;span class=&quot;o&quot;&gt;=&amp;gt;&lt;/span&gt; &lt;span class=&quot;kp&quot;&gt;nil&lt;/span&gt;
+&lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;&lt;span class=&quot;mo&quot;&gt;002&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;u&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;no&quot;&gt;User&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;new&lt;/span&gt;
+&lt;span class=&quot;ss&quot;&gt;LoadError&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;cannot&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;load&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;such&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;file&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;--&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;/users&lt;/span&gt;
+	&lt;span class=&quot;n&quot;&gt;from&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;irb&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;):&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;
+	&lt;span class=&quot;n&quot;&gt;from&lt;/span&gt; &lt;span class=&quot;sr&quot;&gt;/Users/&lt;/span&gt;&lt;span class=&quot;no&quot;&gt;Paul&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;/.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;rvm&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;rubies&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;ruby&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;bin&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;ss&quot;&gt;irb&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;11&lt;/span&gt;&lt;span class=&quot;ss&quot;&gt;:in&lt;/span&gt; &lt;span class=&quot;err&quot;&gt;’&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;&amp;lt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;main&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;&amp;gt;&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;‘&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;p&gt;代码加载时并没有提示任何错误信息，直到真正有方法的调用，才显示加载错误。&lt;/p&gt;
+
+&lt;h3 id=&quot;section-1&quot;&gt;比较&lt;/h3&gt;
+&lt;ul&gt;
+  &lt;li&gt;load需要每次执行代码，使用会带来更多的性能开销。&lt;/li&gt;
+  &lt;li&gt;require需要显式的执行相对文件路径，或者在require之前使用&lt;code&gt;$:.unshift &#39;.&#39;&lt;/code&gt;，来加载当前文件路径到$LOAD_PATH中。&lt;/li&gt;
+  &lt;li&gt;require_relative为require提供一种更简单的相对路径使用方式。&lt;/li&gt;
+  &lt;li&gt;autoload在性能开销上有优势，但是对加载错误处理不如其他。&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h3 id=&quot;section-2&quot;&gt;结论&lt;/h3&gt;
+&lt;ul&gt;
+  &lt;li&gt;包括很多gems都偏向于使用autoload，最有名的当属rails，个人认为在编程是能有效避免，或者在unit test阶段可以避免加载错误，autoload是一种不错的加载机制。&lt;/li&gt;
+  &lt;li&gt;其次require，但是需要将文件显式的相对路径。&lt;/li&gt;
+&lt;/ul&gt;
+</description>
+        <pubDate>Thu, 18 Feb 2016 00:00:00 +0800</pubDate>
+        <link>/the-ways-to-load-code-in-ruby</link>
+        <guid isPermaLink="true">/the-ways-to-load-code-in-ruby</guid>
+        
+        <category>ruby</category>
+        
+        <category>load-code</category>
+        
+        <category>load</category>
+        
+        <category>require</category>
+        
+        
+        <category>ruby-programming</category>
+        
+        <category>load</category>
+        
+        <category>require</category>
+        
+      </item>
+    
+      <item>
+        <title>How many different in curl and wget</title>
+        <description>&lt;p&gt;&lt;code&gt;wget&lt;/code&gt;和&lt;code&gt;curl&lt;/code&gt;是我们常用的linux命名，&lt;code&gt;wget&lt;/code&gt;通常用来通过shell下载文件，而&lt;code&gt;curl&lt;/code&gt;通常用于通过
+Shell请求Web资源。两个使用场景有些不同和雷同， 但是区别和雷同具体是什么，还是需要仔细研究下两个命令的特点。&lt;/p&gt;
+
+&lt;h4 id=&quot;section&quot;&gt;故事起源:&lt;/h4&gt;
+&lt;p&gt;最近做运维比较多，尤其使用docker，偶尔有需求在container里面做设置，当有需要在container下载文件时，发现没有常用的&lt;code&gt;wget&lt;/code&gt;，如果在container里面使用，需要安装&lt;code&gt;wget&lt;/code&gt;，瞬间傻眼，这肯定不是Best Practice，于是使用&lt;code&gt;curl&lt;/code&gt;。&lt;/p&gt;
+
+&lt;h4 id=&quot;section-1&quot;&gt;故事结果：&lt;/h4&gt;
+&lt;p&gt;屡次使用&lt;code&gt;curl&lt;/code&gt;都是取回Page或者Error Page， 结果发现需要带上option&lt;code&gt;-O&lt;/code&gt;&lt;/p&gt;
+
+&lt;h4 id=&quot;curlwget&quot;&gt;对比&lt;code&gt;curl&lt;/code&gt;和&lt;code&gt;wget&lt;/code&gt;&lt;/h4&gt;
+
+&lt;p&gt;&lt;strong&gt;Both&lt;/strong&gt;–比如以下特性都是在&lt;code&gt;wget&lt;/code&gt;和&lt;code&gt;curl&lt;/code&gt;都同时支持的:&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;都可以通过&lt;code&gt;ftp&lt;/code&gt;或者&lt;code&gt;http&lt;/code&gt;下载文件。&lt;/li&gt;
+  &lt;li&gt;都可以发送&lt;em&gt;HTTP POST&lt;/em&gt; request。&lt;/li&gt;
+  &lt;li&gt;都支持&lt;em&gt;HTTP cookies&lt;/em&gt;&lt;/li&gt;
+  &lt;li&gt;都支持&lt;em&gt;metalink&lt;/em&gt;&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;以下则是区别，根据这些区别我们也可用更好的了解何时是Best Practice: 以下则是区别，根据这些区别我们也可用更好的了解何时是Best Practice:&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;&lt;strong&gt;Differ&lt;/strong&gt;–以下则是区别，根据这些区别我们也可用更好的了解何时是Best Practice:&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;&lt;code&gt;curl&lt;/code&gt;是一个&lt;em&gt;library&lt;/em&gt;，而&lt;code&gt;wget&lt;/code&gt;是一个&lt;em&gt;command line&lt;/em&gt;。&lt;/li&gt;
+  &lt;li&gt;&lt;code&gt;curl&lt;/code&gt;支持非常多的协议，但是&lt;code&gt;wget&lt;/code&gt;是不支持的，例如：&lt;code&gt;DICT, FILE, FTP, FTPS, Gopher, HTTP, HTTPS, IMAP, IMAPS, LDAP, LDAPS, POP3, POP3S, RTMP, RTSP, SCP, SFTP, SMB, SMTP, SMTPS, Telnet and TFTP&lt;/code&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;code&gt;curl&lt;/code&gt;有提供API，但是&lt;code&gt;wget&lt;/code&gt;则没有&lt;/li&gt;
+  &lt;li&gt;&lt;code&gt;wget&lt;/code&gt;支持一个叫&lt;strong&gt;Recursive download&lt;/strong&gt;的方式，可以带参数&lt;code&gt;depth&lt;/code&gt;, default是5，可以深度递归抓取的内容。&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h5 id=&quot;example&quot;&gt;Example:&lt;/h5&gt;
+&lt;p&gt;拿下来文件为例，如果计划使用&lt;code&gt;curl&lt;/code&gt;
+&lt;code&gt;bash
+curl https://octodex.github.com/images/welcometocat.png
+&lt;/code&gt;
+以上只能在屏幕输出访问资源的内容。&lt;/p&gt;
+
+&lt;p&gt;所以需要带上参数&lt;code&gt;-O&lt;/code&gt;, 才是下载文件&lt;/p&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;curl -O https://octodex.github.com/images/welcometocat.png&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;p&gt;然而如果使用&lt;code&gt;wget&lt;/code&gt;，就不需要任何参数&lt;/p&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;wget https://octodex.github.com/images/welcometocat.png&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;h5 id=&quot;conclusion&quot;&gt;Conclusion:&lt;/h5&gt;
+&lt;p&gt;简单文件下载，且不需要安装额外资源，可以使用curl with &lt;code&gt;-O&lt;/code&gt;，如果有批量下载任务，可以考虑wget。测试Web app 或者Web API， curl会更合适。&lt;/p&gt;
+
+&lt;h5 id=&quot;others&quot;&gt;Others:&lt;/h5&gt;
+&lt;p&gt;最后附上一些附加内容，更详细的&lt;code&gt;curl&lt;/code&gt;的对照表（与其它的开源工具），另外一个是更友好更容易上手学习的curl的替代品。&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;查看对照表 &lt;a href=&quot;http://curl.haxx.se/docs/comparison-table.html&quot;&gt;curl comparison table&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;一个新”curl”工具– &lt;a href=&quot;https://github.com/jkbrzt/httpie&quot;&gt;httpie&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+</description>
+        <pubDate>Wed, 20 Jan 2016 06:35:24 +0800</pubDate>
+        <link>/how-many-different-in-curl-and-wget</link>
+        <guid isPermaLink="true">/how-many-different-in-curl-and-wget</guid>
+        
+        <category>linux</category>
+        
+        <category>command</category>
+        
+        <category>curl</category>
+        
+        <category>wget</category>
+        
+        
+        <category>linux</category>
+        
+        <category>command</category>
+        
+      </item>
+    
+      <item>
+        <title>Welcome to Jekyll!</title>
+        <description>&lt;p&gt;You’ll find this post in your &lt;code&gt;_posts&lt;/code&gt; directory. Go ahead and edit it and re-build the site to see your changes. You can rebuild the site in many different ways, but the most common way is to run &lt;code&gt;jekyll serve&lt;/code&gt;, which launches a web server and auto-regenerates your site when a file is updated.&lt;/p&gt;
+
+&lt;p&gt;To add new posts, simply add a file in the &lt;code&gt;_posts&lt;/code&gt; directory that follows the convention &lt;code&gt;YYYY-MM-DD-name-of-post.ext&lt;/code&gt; and includes the necessary front matter. Take a look at the source for this post to get an idea about how it works.&lt;/p&gt;
+
+&lt;p&gt;Jekyll also offers powerful support for code snippets:&lt;/p&gt;
+
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-ruby&quot; data-lang=&quot;ruby&quot;&gt;&lt;span class=&quot;k&quot;&gt;def&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;print_hi&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+  &lt;span class=&quot;nb&quot;&gt;puts&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&amp;quot;Hi, &lt;/span&gt;&lt;span class=&quot;si&quot;&gt;#{&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;si&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&amp;quot;&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;end&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;print_hi&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s1&quot;&gt;&amp;#39;Tom&amp;#39;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+&lt;span class=&quot;c1&quot;&gt;#=&amp;gt; prints &amp;#39;Hi, Tom&amp;#39; to STDOUT.&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+
+&lt;p&gt;Check out the &lt;a href=&quot;http://jekyllrb.com&quot;&gt;Jekyll docs&lt;/a&gt; for more info on how to get the most out of Jekyll. File all bugs/feature requests at &lt;a href=&quot;https://github.com/jekyll/jekyll&quot;&gt;Jekyll’s GitHub repo&lt;/a&gt;. If you have questions, you can ask them on &lt;a href=&quot;https://github.com/jekyll/jekyll-help&quot;&gt;Jekyll’s dedicated Help repository&lt;/a&gt;.&lt;/p&gt;
+
+</description>
+        <pubDate>Thu, 26 Nov 2015 21:46:52 +0800</pubDate>
+        <link>/blog/2015/welcome-to-jekyll/</link>
+        <guid isPermaLink="true">/blog/2015/welcome-to-jekyll/</guid>
+        
+        
+        <category>jekyll</category>
+        
+        <category>update</category>
+        
+      </item>
+    
+  </channel>
+</rss>
