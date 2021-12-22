@@ -1,9 +1,0 @@
-version: '3'
-
-services:
-  hugo:
-    image: y00rb/hugo
-    volumes:
-      - .:/srv/hugo
-    ports:
-      - 1313:1313
